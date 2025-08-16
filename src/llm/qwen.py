@@ -63,6 +63,12 @@ bot = Assistant(llm=llm_cfg,
 llm = LocalQwenAgent(llm=llm_cfg,
                 function_list=tools,)
 
+def getLlm(cfg, functions) -> LocalQwenAgent:
+    if not cfg:
+        cfg = llm_cfg
+    return LocalQwenAgent(llm=cfg,
+                function_list=functions,)
+
 def chat():
     # 步骤 4：作为聊天机器人运行智能体。
     messages = []  # 这里储存聊天历史。
@@ -83,7 +89,7 @@ def chat():
         response = []
         response_plain_text = ''
         print('机器人回应:')
-        nonstream = bot.run_nonstream(messages=messages)
+        nonstream = bot.run(messages=messages)
         print(f"{nonstream}")
         print("---------------------")
         for response in bot.run(messages=messages):

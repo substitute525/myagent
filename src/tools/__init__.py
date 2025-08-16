@@ -1,5 +1,6 @@
 import json
 
+import langchain_core.tools
 from dotenv import load_dotenv
 from qwen_agent.tools import BaseTool
 from qwen_agent.tools.base import register_tool, TOOL_REGISTRY
@@ -43,11 +44,15 @@ all_tools = [
 
 
 def register_qwen_tool_from_langchain(lc_tool, name=None, description=None):
+    ToolCls, tool_name = get_qwen_cls(lc_tool, description, name)
+
+    return register_tool(tool_name)(ToolCls)
+
+
+def get_qwen_cls(lc_tool: langchain_core.tools.BaseTool, description=None, name=None):
     tool_name = name or lc_tool.name
     tool_description = description or getattr(lc_tool, "description", "")
-
     parameters = []
-
     # 如果有 args_schema，用其 schema() 提取字段
     if hasattr(lc_tool, "args_schema") and lc_tool.args_schema:
         schema_info = lc_tool.args_schema.schema()
@@ -61,7 +66,7 @@ def register_qwen_tool_from_langchain(lc_tool, name=None, description=None):
             })
 
     def tool_call(self, params: str, **kwargs) -> str:
-        parsed = json.loads(params)
+        parsed = json.loads(params) if params else {}
         result = lc_tool.invoke(parsed)
         print(f"[工具调用]工具名称：{lc_tool.name}, 参数：{params}, 结果：{result}")
         return json.dumps({"result": result})
@@ -76,8 +81,7 @@ def register_qwen_tool_from_langchain(lc_tool, name=None, description=None):
             "call": tool_call,
         }
     )
-
-    return register_tool(tool_name)(ToolCls)
+    return ToolCls, tool_name
 
 
 def qwen_adaptation_init():
