@@ -27,7 +27,6 @@ from src.tools.web_query_functions import (
 from src.tools.interrupt import human_assistance
 
 all_tools = [
-    human_assistance,
     execute_command,
     list_sessions,
     read_output,
@@ -65,9 +64,8 @@ def get_qwen_cls(lc_tool: langchain_core.tools.BaseTool, description=None, name=
                 "required": param_name in required_fields,
             })
 
-    def tool_call(self, params: str, **kwargs) -> str:
-        parsed = json.loads(params) if params else {}
-        result = lc_tool.invoke(parsed)
+    def tool_call(self, params: dict, **kwargs) -> str:
+        result = lc_tool.invoke(params)
         print(f"[工具调用]工具名称：{lc_tool.name}, 参数：{params}, 结果：{result}")
         return json.dumps({"result": result})
 

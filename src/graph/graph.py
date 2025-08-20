@@ -13,9 +13,9 @@ from src.agent import (PlannerAgent, ReviewerAgent, ToolAgent, KnowledgeAgent)
 from src.tools import all_tools
 
 planner = PlannerAgent(mode=ModelMode.LOCAL_QWEN)
-reviewer = ReviewerAgent()
-tool_agent = ToolAgent(tools=all_tools)
-knowledge = KnowledgeAgent()
+reviewer = ReviewerAgent(mode=ModelMode.LOCAL_QWEN)
+tool_agent = ToolAgent(mode=ModelMode.LOCAL_QWEN,tools=all_tools)
+knowledge = KnowledgeAgent(mode=ModelMode.LOCAL_QWEN)
 
 
 def knowledge_node(state: AgentState):
@@ -73,13 +73,13 @@ graph = (
     StateGraph(AgentState)
     .add_node("knowledge_node", knowledge_node)
     .add_node("plan", plan_node)
-    .add_node("executor", tools_node)
-    .add_node("review", review_node)
+    # .add_node("executor", tools_node)
+    # .add_node("review", review_node)
     .add_edge(START, "knowledge_node")
     .add_edge("knowledge_node", "plan")
-    .add_conditional_edges("plan", plan_route)
-    .add_edge("executor", "plan")
-    .add_conditional_edges("review", review_route)
+    # .add_conditional_edges("plan", plan_route)
+    # .add_edge("executor", "plan")
+    # .add_conditional_edges("review", review_route)
     .compile(name="Planning Graph")
 )
 

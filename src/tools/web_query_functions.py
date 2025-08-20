@@ -5,7 +5,7 @@ from langchain_core.tools import tool
 @tool
 def query_url(url: str) -> str:
     """
-    查询指定url的网页内容。
+    仅可用于查询用户指定的url网页内容。
     :param url: 网页地址
     :return: 网页文本内容
     """
@@ -20,7 +20,7 @@ def query_url(url: str) -> str:
 @tool
 def search_web(keyword: str, topn: int = 3) -> list:
     """
-    用关键字搜索网页，返回topn条结果。
+    用关键字搜索网页，返回topn条结果，入参禁止含url。
     :param keyword: 搜索关键字
     :param topn: 返回结果数
     :return: [{'title':..., 'url':..., 'snippet':...}]

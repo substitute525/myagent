@@ -1,5 +1,5 @@
 import json
-from .agent_state import AgentState
+from .agent_state import AgentState, ModelMode
 from langchain_core.messages import ToolMessage
 
 from .base_agent import BaseAgent
@@ -7,7 +7,8 @@ from .base_agent import BaseAgent
 
 class ToolAgent(BaseAgent):
     """A node that runs the tools requested in the last AIMessage."""
-    def __init__(self, tools: list) -> None:
+    def __init__(self, tools: list, mode: ModelMode) -> None:
+        super().__init__(mode)
         self.tools_by_name = {tool.name: tool for tool in tools}
 
     def run_task(self, state: AgentState) -> AgentState:

@@ -105,32 +105,43 @@ class BaseAssistant(ABC):
                 messages.insert(0, SystemMessage(self.system))
             else:
                 messages[0].content = self.system + '\n\n' + messages[0].content
-        messages = self._preprocess_messages(messages=messages,
+
+        if 'tool_names' in kwargs:
+            messages = self._preprocess_messages(messages=messages,
+                                                 functions=[self.function_map.get(func_name).function for func_name in kwargs.get('tool_names') if func_name in self.function_map])
+        else:
+            messages = self._preprocess_messages(messages=messages,
                                              functions=[func.function for func in self.function_map.values()])
         for rsp in self._run(messages=messages, **kwargs):
             yield [x for x in rsp]
 
     def _fncall_prompt(self) -> str:
-        return """# Tools
+        return """# 工具相关
+## 提供给你的工具
 
-    You may call one or more functions to assist with the user query.
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{tool_descs}
+</tools>
 
-    You are provided with function signatures within <tools></tools> XML tags:
-    <tools>
-    {tool_descs}
-    </tools>
+## 使用工具
 
-    For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
-    <tool_call>
-    {{"name": <function-name>, "arguments": <args-json-object>}}
-    </tool_call>
-    For code parameters, use placeholders first, and then put the code within <code></code> XML tags, such as:
-    <tool_call>
-    {{"name": <function-name>, "arguments": {{"code": ""}}}}
-    <code>
-    Here is the code.
-    </code>
-    </tool_call>"""
+You may call one or more functions to assist with the user query.
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags.
+You are allowed to call functions multiple times across multiple turns if needed.
+``` 调用工具模板
+<tool_call>
+{{"name": <function-name>, "arguments": <args-json-object>}}
+</tool_call>
+```
+"""
+    #     For code parameters, use placeholders first, and then put the code within <code></code> XML tags, such as:
+    #     <tool_call>
+    #     {{"name": <function-name>, "arguments": {{"code": ""}}}}
+    #     <code>
+    #     Here is the code.
+    #     </code>
+    #     </tool_call>
 
     def _preprocess_messages(self, messages: List[BaseMessage], lang: str = 'zh', generate_cfg: dict = None,
                              functions: Optional[List[Dict]] = None, ) -> List[BaseMessage]:
@@ -164,12 +175,17 @@ class BaseAssistant(ABC):
                 else:
                     new_messages.append(HumanMessage(content=content))
 
-        tool_descs = [{'type': 'function', 'function': f} for f in functions]
-        tool_descs = '\n'.join([json.dumps(f, ensure_ascii=False) for f in tool_descs])
-        if messages and messages[0].type == 'system':
-            new_messages[0].content.append('\n\n' + self._fncall_prompt().format(tool_descs))
-        else:
-            new_messages = [SystemMessage(content=self._fncall_prompt().format(tool_descs=tool_descs))] + messages
+        if functions:
+            tool_descs = [{'type': 'function', 'function': f} for f in functions]
+            tool_descs = '\n'.join([json.dumps(f, ensure_ascii=False) for f in tool_descs])
+            tools_prompt = self._fncall_prompt().format(tool_descs=tool_descs)
+            if messages and messages[0].type == 'system':
+                if "{tools}" in new_messages[0].content:
+                    new_messages[0].content = new_messages[0].content.format(tools=tools_prompt)
+                else:
+                    new_messages[0].content = new_messages[0].content + ('\n\n' + tools_prompt)
+            else:
+                new_messages = [SystemMessage(content=tools_prompt)] + messages
         return new_messages
 
     @abstractmethod
@@ -224,6 +240,8 @@ class BaseAssistant(ABC):
             return f'Tool {tool_name} does not exists.'
         tool = self.function_map[tool_name]
         try:
+            if isinstance(tool_args, str):
+                tool_args = json5.loads(tool_args) if tool_args else {}
             tool_result = tool.call(tool_args, **kwargs)
         except (ToolServiceError, DocParserError) as ex:
             raise ex
@@ -297,7 +315,7 @@ class BaseAssistant(ABC):
                 if fn_name:  # need to call function
                     # TODO: process incomplete tool-call messages
                     toolCalls.append(ToolCall(
-                        id=func_name,
+                        id=fn_name,
                         name=fn_name,
                         # 此处json不完整，无法赋值
                         args={}
@@ -309,12 +327,12 @@ class BaseAssistant(ABC):
             try:
                 fn = json5.loads(one_tool_call_txt[0].strip())
             except Exception:
-                logger.warning('Invalid json tool-calling arguments')
+                logger.warning(f'Invalid json tool-calling arguments, txt:[{txt}]')
                 fn_name, fn_args = self.extract_fn(text=one_tool_call_txt[0].strip())
                 toolCalls.append(ToolCall(
                     id=fn_name,
                     name=fn_name,
-                    args=fn_args
+                    args=json.loads(fn_args)
                 ))
             if fn:
                 toolCalls.append(ToolCall(
