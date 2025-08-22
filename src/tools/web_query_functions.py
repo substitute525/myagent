@@ -20,13 +20,12 @@ def query_url(url: str) -> str:
 @tool
 def search_web(keyword: str, topn: int = 3) -> list:
     """
-    用关键字搜索网页，返回topn条结果，入参禁止含url。
+    用关键字搜索网页，返回topn条结果，该工具禁止通过URL查询
     :param keyword: 搜索关键字
     :param topn: 返回结果数
     :return: [{'title':..., 'url':..., 'snippet':...}]
     """
-    import requests
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
     try:
         results = []
         with DDGS() as ddgs:

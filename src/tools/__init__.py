@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from qwen_agent.tools import BaseTool
 from qwen_agent.tools.base import register_tool, TOOL_REGISTRY
 
+from src.log import logger
+
 load_dotenv()
 from src.tools.command_execution_functions import (
     execute_command,
@@ -66,8 +68,8 @@ def get_qwen_cls(lc_tool: langchain_core.tools.BaseTool, description=None, name=
 
     def tool_call(self, params: dict, **kwargs) -> str:
         result = lc_tool.invoke(params)
-        print(f"[工具调用]工具名称：{lc_tool.name}, 参数：{params}, 结果：{result}")
-        return json.dumps({"result": result})
+        logger.debug(f"[工具调用]工具名称：{lc_tool.name}, 参数：{params}, 结果：{result}")
+        return json.dumps({"result": result}, ensure_ascii=False)
 
     ToolCls = type(
         tool_name + "Tool",

@@ -10,21 +10,34 @@ from langgraph.graph import StateGraph
 
 from src.agent.agent_state import AgentState, ModelMode
 from src.agent import (PlannerAgent, ReviewerAgent, ToolAgent, KnowledgeAgent)
+from src.agent.execute_agent import GeneralExecuteAgent
+from src.log import logger
 from src.tools import all_tools
 
 planner = PlannerAgent(mode=ModelMode.LOCAL_QWEN)
 reviewer = ReviewerAgent(mode=ModelMode.LOCAL_QWEN)
 tool_agent = ToolAgent(mode=ModelMode.LOCAL_QWEN,tools=all_tools)
+general_execute_agent = GeneralExecuteAgent(mode=ModelMode.LOCAL_QWEN)
 knowledge = KnowledgeAgent(mode=ModelMode.LOCAL_QWEN)
 
 
 def knowledge_node(state: AgentState):
+    state.node = 'KNOWLEDGE'
     state = knowledge.acquire_knowledge(state)
+    logger.info(f"[KNOWLEDGE] => {state.knowledge}")
     return state
 
 
 def plan_node(state: AgentState):
+    state.node = 'PLAN'
     state = planner.plan(state)
+    logger.info(f"[PLANNER] => {state.task_list}")
+    return state
+
+
+def general_execute_node(state: AgentState):
+    state.node = 'EXECUTE'
+    state = general_execute_agent.run(state)
     return state
 
 
@@ -48,21 +61,17 @@ def review_node(state: AgentState):
     return state
 
 
-def plan_route(state: AgentState):
-    if state.task_list and state.task_list.__len__() > 0:
-        print("[路由] PLAN ->> EXECUTOR")
-        return "executor"
+def execute_route(state: AgentState):
+    if not state.task_finish:
+        return "plan"
     else:
-        print("[路由] PLAN ->> REVIEW")
-        return "review"
+        return END
 
 
 def review_route(state: AgentState):
     if state.review_result.get("finished", True):
-        print("[路由] REVIEW ->> END")
         return END
     else:
-        print("[路由] REVIEW ->> PLAN")
         return "plan"
 
 
@@ -71,14 +80,15 @@ def review_route(state: AgentState):
 # Define the graph
 graph = (
     StateGraph(AgentState)
-    .add_node("knowledge_node", knowledge_node)
+    .add_node("knowledge", knowledge_node)
     .add_node("plan", plan_node)
+    .add_node("execute", general_execute_node)
     # .add_node("executor", tools_node)
     # .add_node("review", review_node)
-    .add_edge(START, "knowledge_node")
-    .add_edge("knowledge_node", "plan")
-    # .add_conditional_edges("plan", plan_route)
-    # .add_edge("executor", "plan")
+    .add_edge(START, "knowledge")
+    .add_edge("knowledge", "plan")
+    .add_edge("plan", "execute")
+    .add_conditional_edges("execute", execute_route)
     # .add_conditional_edges("review", review_route)
     .compile(name="Planning Graph")
 )
@@ -89,7 +99,7 @@ def run(task):
         state = AgentState(user_task=task)
         final_state: AgentState
         for step in graph.stream(state, config={"configurable": {"thread_id": "1"}}, stream_mode="values", ):
-            print(f"\n--- {getattr(step, 'node', 'start')}本轮输出 ---")
+            print(f"\n--- {step.get('node', 'start')}本轮输出 ---")
             for node, output in step.items():
                 if output not in (None, '', [], {}):
                     print(f"[{node}] => {output}")
@@ -127,4 +137,4 @@ def run(task):
 
 
 if __name__ == "__main__":
-    run("查询有哪些股票未来一周上涨可能更大")
+    run("什么是世界模型")

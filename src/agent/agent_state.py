@@ -1,17 +1,18 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from langchain_core.messages import ToolMessage
 
 
 @dataclass
 class TaskItem:
-    index: int
-    task: str
-    goal: str
-    desc: str
-    correlation: int
-    extra_info: str
+    index: Optional[int] = None
+    task: Optional[str] = None
+    goal: Optional[str] = None
+    desc: Optional[str] = None
+    correlation: Optional[int] = None
+    extra_info: Optional[str] = None
+    result: Optional[str] = None
 
 
 @dataclass
@@ -26,6 +27,7 @@ class AgentState:
     knowledge: Any = ""
     # planner相关
     task_finish: bool = False
+    executed_index = []
     task_list: List[TaskItem] = field(default_factory=list)
 
     messages: List[Any] = field(default_factory=list)

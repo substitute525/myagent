@@ -1,11 +1,13 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional, Union, Iterator
 
 from langchain_core.messages import BaseMessage, ToolMessage
 
-from src.agent.agent_state import ModelMode
+from src.agent.agent_state import ModelMode, AgentState
 from src.assistant.assistant import BaseAssistant
 from src.assistant.qwen_assistant import QwenAssistant
+from src.log import logger
 from src.tools import all_tools
 
 
@@ -17,7 +19,7 @@ class Response:
 
 
 @dataclass
-class BaseAgent():
+class BaseAgent(ABC):
     mode: ModelMode = ModelMode.LOCAL_QWEN
     llm: BaseAssistant = None
     stream: bool = False
@@ -52,7 +54,7 @@ class BaseAgent():
                 llm_cfg = default_cfg
             self.llm = QwenAssistant(function_list=all_tools, llm=llm_cfg, name='qwen', system=system_prompt)
 
-    def invoke_llm(self, messages: List[BaseMessage], tools: [str] = None) -> Union[Response, Iterator[Response]]:
+    def invoke_llm(self, messages: List[BaseMessage], tools: [str] = None, use_tool: bool = True) -> Union[Response, Iterator[Response]]:
         if self.stream:
             response = self.llm.run(messages, stream=self.stream)
             r = Response()
@@ -63,8 +65,9 @@ class BaseAgent():
             raw = ''
             fn_call = {}
             fn_resp = {}
-            for msg_batch in self.llm.run(messages, stream=self.stream, tool_names=tools):
+            for msg_batch in self.llm.run(messages, stream=self.stream, tool_names=tools, usetool=use_tool):
                 for response in msg_batch:
+                    logger.debug(f"输入消息: {messages}; 响应: {response}")
                     if isinstance(response, ToolMessage):
                         fn_resp[response.tool_call_id] = response
                     elif hasattr(response, "tool_calls") and response.tool_calls:
@@ -90,3 +93,7 @@ class BaseAgent():
                     fn_resp.get(call_id),
                 ]
             return r
+
+    @abstractmethod
+    def run(self, state: AgentState, **kwargs) -> AgentState:
+        raise NotImplementedError

@@ -11,6 +11,9 @@ class ToolAgent(BaseAgent):
         super().__init__(mode)
         self.tools_by_name = {tool.name: tool for tool in tools}
 
+    def run(self, state: AgentState, **kwargs) -> AgentState:
+        self.run_task(state)
+
     def run_task(self, state: AgentState) -> AgentState:
         state.node = 'tools'
         for task in state.task_list:

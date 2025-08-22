@@ -106,12 +106,15 @@ class BaseAssistant(ABC):
             else:
                 messages[0].content = self.system + '\n\n' + messages[0].content
 
-        if 'tool_names' in kwargs:
-            messages = self._preprocess_messages(messages=messages,
+        if kwargs.get('usetool'):
+            if not kwargs.get('tool_names'):
+                messages = self._preprocess_messages(messages=messages,
+                                                     functions=[func.function for func in self.function_map.values()])
+            else:
+                messages = self._preprocess_messages(messages=messages,
                                                  functions=[self.function_map.get(func_name).function for func_name in kwargs.get('tool_names') if func_name in self.function_map])
         else:
-            messages = self._preprocess_messages(messages=messages,
-                                             functions=[func.function for func in self.function_map.values()])
+            messages = self._preprocess_messages(messages=messages)
         for rsp in self._run(messages=messages, **kwargs):
             yield [x for x in rsp]
 

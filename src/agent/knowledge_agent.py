@@ -4,6 +4,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from .agent_state import AgentState
 from .base_agent import BaseAgent
+from ..log import logger
 
 system_prompt = """# 职责说明
 
@@ -37,6 +38,10 @@ ReviewerAgent（评审总结智能体）：判断任务是否完成，并反馈�
 
 class KnowledgeAgent(BaseAgent):
 
+
+    def run(self, state: AgentState, **kwargs) -> AgentState:
+        return self.acquire_knowledge(state)
+
     def acquire_knowledge(self, state: AgentState) -> AgentState:
         state.node = 'knowledge'
 
@@ -47,16 +52,15 @@ class KnowledgeAgent(BaseAgent):
         response = self.invoke_llm(messages,
                                    tools=['execute_command', 'list_sessions', 'read_output', 'human_assistance',
                                           'tree_dir', 'query_url', 'search_web'])
-        print(
-            f"[KNOWLEDGE] 前置知识获取结果: think='{response.think}'\n content='{response.content}'\n tool_calls='{response.tool_calls}' ")
 
         # 将知识内容写入 state
-        pattern = r"markdown\n(.*?)"
+        pattern = r"```markdown(.*?)```"
         matches = re.findall(pattern, response.content, re.DOTALL)
 
         for m in matches:
             state.knowledge = m
         if not state.knowledge:
             state.knowledge = response.content
+        logger.info(f"[KNOWLEDGE_AGENT]背景知识: {state.knowledge}")
         state.tool_calls.extend(response.tool_calls.values())
         return state

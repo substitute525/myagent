@@ -41,6 +41,11 @@ systemMessage = SystemMessage(content="""
 
 class ReviewerAgent(BaseAgent):
 
+
+
+    def run(self, state: AgentState, **kwargs) -> AgentState:
+        return self.review(state)
+
     def review(self, state: AgentState) -> Any:
         state.node = 'review'
 
